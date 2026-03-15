@@ -1,0 +1,7 @@
+NEW_LEAD = "new_lead"
+QUALIFIED_LEAD = "qualified_lead"
+ENGAGEMENT_REQUEST = "engagement_request"
+CAMPAIGN_REVIEW = "campaign_review"
+STRATEGY_REVIEW = "strategy_review"
+MEMORY_CONSOLIDATION = "memory_consolidation"
+SELF_REFLECTION = "self_reflection"
