@@ -8,6 +8,8 @@ class AgentTask(BaseModel):
     payload: Dict[str, Any]
     context: Dict[str, Any] = {}
     assigned_by: Optional[str] = None
+    session_id: Optional[str] = None
+    lead_id: Optional[str] = None
 
 
 class AgentResult(BaseModel):

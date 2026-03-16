@@ -10,11 +10,14 @@ def run_lead_chain():
         task_id="lead_chain_001",
         task_type=NEW_LEAD,
         payload={
+            "lead_id": "lead_faizan_001",
             "lead_name": "Faizan",
             "message": "Hi, I am interested in enterprise pricing and would like a demo for my team.",
             "source": "website"
         },
-        context={}
+        context={},
+        session_id="session_faizan_001",
+        lead_id="lead_faizan_001",
     )
 
     results = runtime.execute_task_chain(task)
@@ -23,6 +26,22 @@ def run_lead_chain():
     for idx, result in enumerate(results, start=1):
         print(f"\nStep {idx}")
         print(result.model_dump())
+
+    print("\n--- Short-Term Memory ---")
+    stm = runtime.memory.short_term.get("session_faizan_001")
+    print(stm.model_dump() if stm else None)
+
+    print("\n--- Long-Term Memory ---")
+    ltm = runtime.memory.long_term.get("lead_faizan_001")
+    print(ltm.model_dump() if ltm else None)
+
+    print("\n--- Episodic Memory ---")
+    for episode in runtime.memory.episodic.list_all():
+        print(episode.model_dump())
+
+    print("\n--- Semantic Memory ---")
+    for triplet in runtime.memory.semantic.list_all():
+        print(triplet.model_dump())
 
 
 def run_campaign_chain():
@@ -36,7 +55,8 @@ def run_campaign_chain():
             "ctr": 0.011,
             "conversion_rate": 0.018
         },
-        context={}
+        context={},
+        session_id="session_campaign_001",
     )
 
     results = runtime.execute_task_chain(task)
