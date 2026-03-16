@@ -36,7 +36,7 @@ class AgentRuntime:
         agent_name = self.route_task(task.task_type)
         agent = self.agents[agent_name]
         return agent.run(task)
-    
+
     def execute_task_chain(self, task: AgentTask) -> list[AgentResult]:
         results = []
 
@@ -52,7 +52,9 @@ class AgentRuntime:
                     task_type="engagement_request",
                     payload={
                         "lead_name": current_task.payload.get("lead_name", "there"),
-                        "category": result.output.get("category", "General Inquiry")
+                        "category": result.output.get("category", "General Inquiry"),
+                        "message": current_task.payload.get("message", ""),
+                        "source": current_task.payload.get("source", "unknown"),
                     },
                     context={"previous_result": result.output},
                     assigned_by=result.agent_name
