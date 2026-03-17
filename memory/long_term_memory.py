@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 from memory.schemas import LongTermMemoryRecord
+from datetime import datetime
 
 
 class LongTermMemory:
@@ -45,6 +46,25 @@ class LongTermMemory:
         if lead_id not in data:
             data[lead_id] = LongTermMemoryRecord(lead_id=lead_id).model_dump()
 
+        event_signature = {
+            "task_type": event.get("task_type"),
+            "agent_name": event.get("agent_name"),
+            "status": event.get("status"),
+            "output": event.get("output"),
+        }
+
+        existing_history = data[lead_id]["history"]
+        for existing in existing_history[-3:]:
+            existing_signature = {
+                "task_type": existing.get("task_type"),
+                "agent_name": existing.get("agent_name"),
+                "status": existing.get("status"),
+                "output": existing.get("output"),
+            }
+            if existing_signature == event_signature:
+                return LongTermMemoryRecord(**data[lead_id])
+
+        event["timestamp"] = datetime.utcnow().isoformat()
         data[lead_id]["history"].append(event)
         self._save(data)
         return LongTermMemoryRecord(**data[lead_id])

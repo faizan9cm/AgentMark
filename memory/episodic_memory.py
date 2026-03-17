@@ -38,3 +38,8 @@ class EpisodicMemory:
             if tag in item.get("tags", []):
                 results.append(EpisodicMemoryRecord(**item))
         return results
+    
+    def top_k(self, k: int = 3) -> List[EpisodicMemoryRecord]:
+        episodes = self.list_all()
+        episodes = sorted(episodes, key=lambda x: x.success_score, reverse=True)
+        return episodes[:k]

@@ -13,6 +13,7 @@ from orchestrator.event_types import (
 from memory.memory_manager import MemoryManager
 from memory.schemas import EpisodicMemoryRecord
 import json
+from memory.retriever import MemoryRetriever
 
 
 class AgentRuntime:
@@ -24,6 +25,7 @@ class AgentRuntime:
             "campaign_optimizer_agent": CampaignOptimizerAgent(),
             "strategy_agent": StrategyAgent(),
         }
+        self.retriever = MemoryRetriever(self.memory)
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -50,13 +52,24 @@ class AgentRuntime:
             summary="Task entered runtime."
         )
 
-        short_term_record = self.memory.short_term.get(session_id)
-        long_term_record = self.memory.long_term.get(lead_id) if lead_id else None
+        episodic_tags = [task.task_type]
 
-        task.context["memory"] = {
-            "short_term": short_term_record.model_dump() if short_term_record else None,
-            "long_term": long_term_record.model_dump() if long_term_record else None,
-        }
+        if task.task_type == "new_lead":
+            lead_message = (task.payload.get("message") or "").lower()
+            if "pricing" in lead_message or "demo" in lead_message or "enterprise" in lead_message:
+                episodic_tags.append("hot_lead")
+
+        if task.task_type == "engagement_request":
+            episodic_tags.extend(["engagement", "lead_triage"])
+
+        if task.task_type == "campaign_review":
+            episodic_tags.append("campaign_review")
+
+        task.context["memory"] = self.retriever.build_agent_memory_context(
+            session_id=session_id,
+            lead_id=lead_id,
+            episodic_tags=episodic_tags,
+        )
 
         agent_name = self.route_task(task.task_type)
         agent = self.agents[agent_name]

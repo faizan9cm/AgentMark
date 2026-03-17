@@ -22,6 +22,7 @@ from agents.base_agent import BaseAgent
 from orchestrator.contracts import AgentTask, AgentResult
 from orchestrator.llm_client import LLMClient
 from orchestrator.json_utils import parse_json_response
+from orchestrator.prompt_utils import format_memory_for_prompt
 
 
 class EngagementAgent(BaseAgent):
@@ -33,14 +34,24 @@ class EngagementAgent(BaseAgent):
         lead_name = task.payload.get("lead_name", "there")
         category = task.payload.get("category", "General Inquiry")
         lead_message = task.payload.get("message", "")
+        memory_context = format_memory_for_prompt(task.context.get("memory", {}))
 
         system_prompt = """
 You are an Engagement Agent in a marketing system.
 
 Your job:
 - write a personalized response to the lead
+- use previous session and lead history if relevant
+- avoid repeating the exact same phrasing if prior engagement exists
 - suggest a follow-up action
 - summarize the engagement intent
+
+Rules:
+- Return only JSON
+- Do not include markdown
+- Do not include code fences
+- Be concise, professional, and personalized
+- If previous engagement exists, build on it rather than restarting blindly
 
 Return ONLY valid JSON in this schema:
 {
@@ -54,6 +65,9 @@ Return ONLY valid JSON in this schema:
 Lead name: {lead_name}
 Lead category: {category}
 Lead message: {lead_message}
+
+Relevant memory:
+{memory_context}
 """
 
         try:

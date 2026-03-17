@@ -24,6 +24,7 @@ from agents.base_agent import BaseAgent
 from orchestrator.contracts import AgentTask, AgentResult
 from orchestrator.llm_client import LLMClient
 from orchestrator.json_utils import parse_json_response
+from orchestrator.prompt_utils import format_memory_for_prompt
 
 
 class LeadTriageAgent(BaseAgent):
@@ -35,6 +36,7 @@ class LeadTriageAgent(BaseAgent):
         message = task.payload.get("message", "")
         source = task.payload.get("source", "unknown")
         lead_name = task.payload.get("lead_name", "unknown")
+        memory_context = format_memory_for_prompt(task.context.get("memory", {}))
 
         system_prompt = """
 You are a Lead Triage Agent for a marketing automation system.
@@ -45,6 +47,19 @@ Your job:
 - assign priority
 - provide a short reasoning summary
 - decide the next action
+
+Use relevant memory if it helps, especially:
+- prior lead history
+- recent session context
+- known lead source or prior classification patterns
+
+Rules:
+- Return only JSON
+- Do not include markdown
+- Do not include code fences
+- Keep reasoning_summary concise
+- If the lead shows strong buying intent, use engagement_request as next_action
+- If a known lead continues to show strong buying intent, follow-up intent, pricing interest, demo interest, onboarding questions, support questions, or team evaluation details, set next_action to "engagement_request".
 
 Return ONLY valid JSON with this schema:
 {
@@ -60,11 +75,25 @@ Return ONLY valid JSON with this schema:
 Lead name: {lead_name}
 Lead source: {source}
 Lead message: {message}
+
+Relevant memory:
+{memory_context}
 """
 
         try:
             raw_output = self.llm.chat(system_prompt, user_prompt)
             parsed = parse_json_response(raw_output)
+            message_lower = message.lower()
+            strong_intent_terms = [
+                "pricing", "demo", "onboarding", "support", "team",
+                "enterprise", "evaluation", "evaluate"
+            ]
+
+            if (
+                parsed["category"] == "Hot Lead"
+                and any(term in message_lower for term in strong_intent_terms)
+            ):
+                parsed["next_action"] = "engagement_request"
         except Exception as e:
             return AgentResult(
                 task_id=task.task_id,
@@ -76,7 +105,7 @@ Lead message: {message}
                 },
                 next_action=None,
             )
-        
+
         return AgentResult(
             task_id=task.task_id,
             agent_name=self.name,

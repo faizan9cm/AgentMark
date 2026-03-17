@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 from memory.schemas import ShortTermMemoryRecord
+from datetime import datetime
 
 
 class ShortTermMemory:
@@ -30,6 +31,7 @@ class ShortTermMemory:
             "role": role,
             "content": content,
             "agent_name": agent_name,
+            "timestamp": datetime.utcnow().isoformat(),
         })
         if agent_name:
             record.latest_agent = agent_name

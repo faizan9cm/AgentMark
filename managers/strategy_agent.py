@@ -13,6 +13,7 @@ from agents.base_agent import BaseAgent
 from orchestrator.contracts import AgentTask, AgentResult
 from orchestrator.llm_client import LLMClient
 from orchestrator.json_utils import parse_json_response
+from orchestrator.prompt_utils import format_memory_for_prompt
 
 
 class StrategyAgent(BaseAgent):
@@ -21,13 +22,21 @@ class StrategyAgent(BaseAgent):
         self.llm = LLMClient()
 
     def run(self, task: AgentTask) -> AgentResult:
+        memory_context = format_memory_for_prompt(task.context.get("memory", {}))
+
         system_prompt = """
 You are a Strategy Agent for a marketing system.
 
 Your role:
 - review escalated campaign issues
+- use relevant memory and prior patterns if available
 - provide a higher-level strategic recommendation
 - summarize the strategic shift
+
+Rules:
+- Return only JSON
+- Do not include markdown
+- Do not include code fences
 
 Return ONLY valid JSON with this schema:
 {
@@ -39,6 +48,9 @@ Return ONLY valid JSON with this schema:
         user_prompt = f"""
 Escalated campaign context:
 {task.payload}
+
+Relevant memory:
+{memory_context}
 """
 
         try:
