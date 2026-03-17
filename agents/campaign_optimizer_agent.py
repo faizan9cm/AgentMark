@@ -22,6 +22,7 @@ from agents.base_agent import BaseAgent
 from orchestrator.contracts import AgentTask, AgentResult
 from orchestrator.llm_client import LLMClient
 from orchestrator.json_utils import parse_json_response
+from orchestrator.prompt_utils import format_memory_for_prompt
 
 
 class CampaignOptimizerAgent(BaseAgent):
@@ -33,6 +34,7 @@ class CampaignOptimizerAgent(BaseAgent):
         ctr = task.payload.get("ctr", 0.0)
         conversion_rate = task.payload.get("conversion_rate", 0.0)
         channel = task.payload.get("channel", "unknown")
+        memory_context = format_memory_for_prompt(task.context.get("memory", {}))
 
         system_prompt = """
 You are a Campaign Optimization Agent.
@@ -40,8 +42,15 @@ You are a Campaign Optimization Agent.
 Your job:
 - analyze campaign performance
 - recommend improvements
+- use relevant episodic patterns if useful
 - estimate confidence
 - decide whether the issue should be escalated for strategy review
+
+Rules:
+- Return only JSON
+- Do not include markdown
+- Do not include code fences
+- Use memory only when relevant, do not force it
 
 Return ONLY valid JSON in this schema:
 {
@@ -57,6 +66,9 @@ Return ONLY valid JSON in this schema:
 Channel: {channel}
 CTR: {ctr}
 Conversion rate: {conversion_rate}
+
+Relevant memory:
+{memory_context}
 """
 
         try:
