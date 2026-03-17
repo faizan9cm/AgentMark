@@ -53,3 +53,6 @@ class EpisodicMemory:
 
         matches = sorted(matches, key=lambda x: x.success_score, reverse=True)
         return matches[:limit]
+    
+    def replace_all(self, episodes: List[EpisodicMemoryRecord]) -> None:
+        self._save([episode.model_dump() for episode in episodes])

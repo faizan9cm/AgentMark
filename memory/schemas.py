@@ -16,6 +16,9 @@ class LongTermMemoryRecord(BaseModel):
     source: Optional[str] = None
     preferences: Dict[str, Any] = Field(default_factory=dict)
     history: List[Dict[str, Any]] = Field(default_factory=list)
+    summary: Optional[str] = None
+    latest_status: Optional[str] = None
+    consolidated_at: Optional[str] = None
 
 
 class EpisodicMemoryRecord(BaseModel):

@@ -77,3 +77,19 @@ class LongTermMemory:
         data[lead_id]["preferences"].update(preferences)
         self._save(data)
         return LongTermMemoryRecord(**data[lead_id])
+    
+    def update_summary(
+        self,
+        lead_id: str,
+        summary: str,
+        latest_status: str | None = None,
+    ) -> LongTermMemoryRecord:
+        data = self._load()
+        if lead_id not in data:
+            data[lead_id] = LongTermMemoryRecord(lead_id=lead_id).model_dump()
+
+        data[lead_id]["summary"] = summary
+        data[lead_id]["latest_status"] = latest_status
+        data[lead_id]["consolidated_at"] = datetime.utcnow().isoformat()
+        self._save(data)
+        return LongTermMemoryRecord(**data[lead_id])

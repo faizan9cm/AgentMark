@@ -3,32 +3,46 @@ from orchestrator.contracts import AgentTask
 from orchestrator.event_types import NEW_LEAD
 
 
-def run_reflection_demo():
+def run_consolidation_demo():
     runtime = AgentRuntime()
 
-    task = AgentTask(
-        task_id="lead_reflect_001",
+    task1 = AgentTask(
+        task_id="lead_cons_001",
         task_type=NEW_LEAD,
         payload={
-            "lead_id": "lead_reflect_faizan",
+            "lead_id": "lead_cons_faizan",
             "lead_name": "Faizan",
-            "message": "Hi, I want enterprise pricing, onboarding details, and a demo for my 20-person team.",
+            "message": "Hi, I want enterprise pricing and a demo for my 20-person team.",
             "source": "website"
         },
         context={},
-        session_id="session_reflect_faizan",
-        lead_id="lead_reflect_faizan",
+        session_id="session_cons_faizan",
+        lead_id="lead_cons_faizan",
     )
 
-    results = runtime.execute_task_chain(task)
+    task2 = AgentTask(
+        task_id="lead_cons_002",
+        task_type=NEW_LEAD,
+        payload={
+            "lead_id": "lead_cons_faizan",
+            "lead_name": "Faizan",
+            "message": "Following up — we are also evaluating onboarding and support options.",
+            "source": "website"
+        },
+        context={},
+        session_id="session_cons_faizan",
+        lead_id="lead_cons_faizan",
+    )
 
-    print("\n--- Execution Results ---")
-    for idx, result in enumerate(results, start=1):
-        print(f"\nStep {idx}")
-        print(result.model_dump())
+    runtime.execute_task_chain(task1)
+    runtime.execute_task_chain(task2)
+
+    print("\n--- Long-Term Memory ---")
+    ltm = runtime.memory.long_term.get("lead_cons_faizan")
+    print(ltm.model_dump() if ltm else None)
 
     print("\n--- Short-Term Memory ---")
-    stm = runtime.memory.short_term.get("session_reflect_faizan")
+    stm = runtime.memory.short_term.get("session_cons_faizan")
     print(stm.model_dump() if stm else None)
 
     print("\n--- Episodic Memory ---")
@@ -37,4 +51,4 @@ def run_reflection_demo():
 
 
 if __name__ == "__main__":
-    run_reflection_demo()
+    run_consolidation_demo()

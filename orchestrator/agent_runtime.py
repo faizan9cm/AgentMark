@@ -15,6 +15,7 @@ from memory.schemas import EpisodicMemoryRecord
 import json
 from memory.retriever import MemoryRetriever
 from reflection.reflection_engine import ReflectionEngine
+from memory.consolidator import MemoryConsolidator
 
 
 class AgentRuntime:
@@ -28,6 +29,7 @@ class AgentRuntime:
         }
         self.retriever = MemoryRetriever(self.memory)
         self.reflection = ReflectionEngine()
+        self.consolidator = MemoryConsolidator(self.memory)
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -178,6 +180,10 @@ class AgentRuntime:
                 )
             else:
                 current_task = None
+            
+        session_id = task.session_id
+        lead_id = task.lead_id
+        self.consolidate_after_chain(session_id=session_id, lead_id=lead_id)
 
         return results
     
@@ -227,3 +233,21 @@ class AgentRuntime:
                 tags=[result.agent_name, task.task_type, reflection.tag],
             )
         )
+    
+    def consolidate_after_chain(self, session_id: str | None, lead_id: str | None) -> None:
+        if session_id:
+            try:
+                self.consolidator.consolidate_session(session_id)
+            except Exception:
+                pass
+
+        if lead_id:
+            try:
+                self.consolidator.consolidate_lead_history(lead_id)
+            except Exception:
+                pass
+
+        try:
+            self.consolidator.consolidate_episodic_memory()
+        except Exception:
+            pass

@@ -46,3 +46,25 @@ class ShortTermMemory:
     def clear(self, session_id: str) -> None:
         if session_id in self.store:
             del self.store[session_id]
+
+    def trim(self, session_id: str, keep_last: int = 12) -> None:
+        record = self.store.get(session_id)
+        if not record:
+            return
+
+        if len(record.messages) > keep_last:
+            record.messages = record.messages[-keep_last:]
+
+    def summarize_and_trim(
+        self,
+        session_id: str,
+        summary: str,
+        keep_last: int = 8,
+    ) -> None:
+        record = self.store.get(session_id)
+        if not record:
+            return
+
+        record.latest_summary = summary
+        if len(record.messages) > keep_last:
+            record.messages = record.messages[-keep_last:]
