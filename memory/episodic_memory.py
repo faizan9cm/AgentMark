@@ -43,3 +43,13 @@ class EpisodicMemory:
         episodes = self.list_all()
         episodes = sorted(episodes, key=lambda x: x.success_score, reverse=True)
         return episodes[:k]
+    
+    def search_by_tags(self, tags: list[str], limit: int = 5) -> List[EpisodicMemoryRecord]:
+        matches = []
+        for item in self._load():
+            item_tags = item.get("tags", [])
+            if any(tag in item_tags for tag in tags):
+                matches.append(EpisodicMemoryRecord(**item))
+
+        matches = sorted(matches, key=lambda x: x.success_score, reverse=True)
+        return matches[:limit]

@@ -31,7 +31,7 @@ class MemoryRetriever:
         if not record:
             return {}
 
-        history = record.history[-6:]  # recent persistent history
+        history = record.history[-8:]  # recent persistent history
         return {
             "lead_id": record.lead_id,
             "lead_name": record.lead_name,

@@ -14,6 +14,7 @@ from memory.memory_manager import MemoryManager
 from memory.schemas import EpisodicMemoryRecord
 import json
 from memory.retriever import MemoryRetriever
+from reflection.reflection_engine import ReflectionEngine
 
 
 class AgentRuntime:
@@ -26,6 +27,7 @@ class AgentRuntime:
             "strategy_agent": StrategyAgent(),
         }
         self.retriever = MemoryRetriever(self.memory)
+        self.reflection = ReflectionEngine()
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -135,6 +137,8 @@ class AgentRuntime:
                 )
             )
 
+        self.reflect_on_result(task, result)
+
         return result
 
     def execute_task_chain(self, task: AgentTask) -> list[AgentResult]:
@@ -176,3 +180,50 @@ class AgentRuntime:
                 current_task = None
 
         return results
+    
+    def reflect_on_result(self, task: AgentTask, result: AgentResult) -> None:
+        if result.status != "success":
+            return
+
+        try:
+            reflection = self.reflection.reflect(
+                agent_name=result.agent_name,
+                task_type=task.task_type,
+                input_payload=task.payload,
+                agent_output=result.output,
+                memory_context=task.context.get("memory", {}),
+            )
+        except Exception:
+            return
+
+        session_id = task.session_id or task.task_id
+
+        self.memory.short_term.add_message(
+            session_id=session_id,
+            role="reflection",
+            content=reflection.model_dump_json(),
+            agent_name="reflection_engine",
+            summary=reflection.lesson,
+        )
+
+        if not reflection.should_store:
+            return
+
+        if reflection.success_score < 0.6:
+            return
+
+        if len(reflection.lesson.strip()) < 20:
+            return
+    
+        episode_id = f"reflection_{task.task_id}_{result.agent_name}"
+
+        self.memory.episodic.add_episode(
+            EpisodicMemoryRecord(
+                episode_id=episode_id,
+                situation=f"Task type: {task.task_type}; Input: {task.payload}",
+                action_taken=f"Agent output: {result.output}",
+                outcome=reflection.lesson,
+                success_score=reflection.success_score,
+                tags=[result.agent_name, task.task_type, reflection.tag],
+            )
+        )
