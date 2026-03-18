@@ -31,7 +31,9 @@ from mcp_layer.mcp_client import MCPClient
 
 
 class AgentRuntime:
-    def __init__(self):
+    def __init__(self, enable_reflection: bool = True, enable_consolidation: bool = True):
+        self.enable_reflection = enable_reflection
+        self.enable_consolidation = enable_consolidation
         self.memory = MemoryManager()
         self.agents = {
             "lead_triage_agent": LeadTriageAgent(),
@@ -213,8 +215,9 @@ class AgentRuntime:
                     tags=["lead_triage", "hot_lead"]
                 )
             )
-
-        self.reflect_on_result(task, result)
+        
+        if self.enable_reflection:
+            self.reflect_on_result(task, result)
 
         return result
 
@@ -318,7 +321,8 @@ class AgentRuntime:
             
         session_id = task.session_id
         lead_id = task.lead_id
-        self.consolidate_after_chain(session_id=session_id, lead_id=lead_id)
+        if self.enable_consolidation:
+            self.consolidate_after_chain(session_id=session_id, lead_id=lead_id)
 
         return results
     

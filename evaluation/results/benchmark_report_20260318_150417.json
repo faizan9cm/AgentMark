@@ -1,0 +1,56 @@
+{
+  "lead_triage": {
+    "task": "lead_triage",
+    "total": 1,
+    "category_accuracy": 1.0,
+    "priority_accuracy": 1.0,
+    "next_action_accuracy": 1.0,
+    "details": [
+      {
+        "id": "lead_001",
+        "status": "success",
+        "output": {
+          "category": "Hot Lead",
+          "score": 0.9,
+          "priority": "High",
+          "reasoning_summary": "Strong buying intent, multiple feature requests, and known lead source. Lead has been engaged for a demo and enterprise pricing discussion previously."
+        },
+        "next_action": "engagement_request",
+        "expected": {
+          "category": "Hot Lead",
+          "priority": "High",
+          "next_action": "engagement_request"
+        },
+        "category_correct": true,
+        "priority_correct": true,
+        "next_action_correct": true
+      }
+    ]
+  },
+  "campaign_optimizer": {
+    "task": "campaign_optimizer",
+    "total": 1,
+    "escalation_accuracy": 1.0,
+    "details": [
+      {
+        "id": "campaign_001",
+        "status": "success",
+        "output": {
+          "optimization_recommendation": "Consider A/B testing different ad creative variations to determine the most effective approach.",
+          "confidence": 0.8,
+          "escalation_flag": false,
+          "summary": "Based on previous recommendations and episodic patterns, A/B testing different ad creative variations is recommended to improve CTR and conversion rate in LinkedIn Ads campaigns."
+        },
+        "expected": {
+          "escalation_flag": false
+        },
+        "escalation_correct": true
+      }
+    ]
+  },
+  "engagement_quality": {
+    "task": "engagement_quality",
+    "skipped": true,
+    "reason": "Temporarily disabled to avoid rate-limit stalls during initial benchmark validation."
+  }
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "lead_001",
+    "task_type": "new_lead",
+    "input": {
+      "lead_id": "bench_lead_001",
+      "lead_name": "Ayaan",
+      "message": "We need enterprise pricing and a demo for our 25-person team.",
+      "source": "website"
+    },
+    "expected": {
+      "category": "Hot Lead",
+      "priority": "High",
+      "next_action": "engagement_request"
+    }
+  },
+  {
+    "id": "campaign_001",
+    "task_type": "campaign_review",
+    "input": {
+      "channel": "LinkedIn Ads",
+      "ctr": 0.011,
+      "conversion_rate": 0.018
+    },
+    "expected": {
+      "escalation_flag": false
+    }
+  }
+]
