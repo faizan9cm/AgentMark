@@ -62,6 +62,20 @@ async def execute_task_chain(task_data: dict):
     results = await run_in_threadpool(runtime.execute_task_chain, task)
     return {"results": [result.model_dump() for result in results]}
 
+@app.get("/mcp/resources")
+def list_mcp_resources():
+    return {"resources": runtime.mcp_server.registry.list_resources()}
+
+
+@app.get("/mcp/tools")
+def list_mcp_tools():
+    return {"tools": runtime.mcp_server.registry.list_tools()}
+
+
+@app.post("/mcp")
+def handle_mcp(request_data: dict):
+    return runtime.mcp_server.handle_request(request_data)
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):

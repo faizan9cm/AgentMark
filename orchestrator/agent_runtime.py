@@ -26,6 +26,8 @@ from communication.registry import AgentMethodRegistry
 from communication.errors import METHOD_NOT_FOUND, INTERNAL_ERROR, INVALID_PARAMS
 from communication.handoff import AgentHandoff
 from typing import Callable, Optional
+from mcp_layer.mcp_server import MCPServer
+from mcp_layer.mcp_client import MCPClient
 
 
 class AgentRuntime:
@@ -43,6 +45,9 @@ class AgentRuntime:
         self.registry = AgentMethodRegistry()
         self._register_agent_methods()
         self.event_callback = None
+        self.mcp_server = MCPServer()
+        self.mcp_client = MCPClient(self.mcp_server)
+        self._register_mcp_targets()
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -101,6 +106,26 @@ class AgentRuntime:
                 episodic_tags=episodic_tags,
             )
         }
+
+        task.context["mcp"] = {
+            "lead_history": self.mcp_client.get_resource(
+                request_id=f"mcp_lead_history_{task.task_id}",
+                name="lead_history",
+                params={"lead_id": lead_id} if lead_id else {},
+            ),
+            "episodic_lessons": self.mcp_client.get_resource(
+                request_id=f"mcp_episodic_{task.task_id}",
+                name="episodic_lessons",
+                params={"tags": episodic_tags},
+            ),
+        }
+
+        if task.task_type == "campaign_review":
+            task.context["mcp"]["campaign_analytics"] = self.mcp_client.get_resource(
+                request_id=f"mcp_campaign_{task.task_id}",
+                name="campaign_analytics",
+                params=task.payload,
+            )
 
         agent_name = self.route_task(task.task_type)
         agent = self.agents[agent_name]
@@ -508,3 +533,76 @@ class AgentRuntime:
         new_context = dict(context)
         new_context["memory"] = compact_memory
         return new_context
+    
+    def _register_mcp_targets(self) -> None:
+        self.mcp_server.registry.register_resource("lead_history", self._mcp_get_lead_history)
+        self.mcp_server.registry.register_resource("episodic_lessons", self._mcp_get_episodic_lessons)
+        self.mcp_server.registry.register_resource("semantic_relations", self._mcp_get_semantic_relations)
+        self.mcp_server.registry.register_resource("campaign_analytics", self._mcp_get_campaign_analytics)
+
+        self.mcp_server.registry.register_tool("update_lead_preferences", self._mcp_update_lead_preferences)
+    
+
+    def _mcp_get_lead_history(self, params: dict) -> dict:
+        lead_id = params.get("lead_id")
+        if not lead_id:
+            return {"history": [], "summary": None}
+
+        record = self.memory.long_term.get(lead_id)
+        if not record:
+            return {"history": [], "summary": None}
+
+        return {
+            "lead_id": record.lead_id,
+            "lead_name": record.lead_name,
+            "summary": record.summary,
+            "latest_status": record.latest_status,
+            "recent_history": record.history[-5:],
+        }
+
+    def _mcp_get_episodic_lessons(self, params: dict) -> dict:
+        tags = params.get("tags", [])
+        if tags:
+            lessons = self.memory.episodic.search_by_tags(tags, limit=5)
+        else:
+            lessons = self.memory.episodic.top_k(5)
+
+        return {
+            "lessons": [lesson.model_dump() for lesson in lessons]
+        }
+
+    def _mcp_get_semantic_relations(self, params: dict) -> dict:
+        lead_id = params.get("lead_id")
+        if not lead_id:
+            return {"relations": []}
+
+        try:
+            relations = self.memory.semantic.query_by_subject(lead_id)
+        except Exception:
+            relations = []
+
+        return {
+            "relations": [relation.model_dump() for relation in relations]
+        }
+
+    def _mcp_get_campaign_analytics(self, params: dict) -> dict:
+        channel = params.get("channel", "unknown")
+        ctr = params.get("ctr", 0.0)
+        conversion_rate = params.get("conversion_rate", 0.0)
+
+        return {
+            "channel": channel,
+            "ctr": ctr,
+            "conversion_rate": conversion_rate,
+            "status": "healthy" if ctr >= 0.02 and conversion_rate >= 0.05 else "needs_attention",
+        }
+
+    def _mcp_update_lead_preferences(self, params: dict) -> dict:
+        lead_id = params.get("lead_id")
+        preferences = params.get("preferences", {})
+
+        if not lead_id:
+            return {"updated": False}
+
+        self.memory.long_term.update_preferences(lead_id, preferences)
+        return {"updated": True, "lead_id": lead_id}

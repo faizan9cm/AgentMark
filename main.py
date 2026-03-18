@@ -3,66 +3,68 @@ import requests
 BASE_URL = "http://127.0.0.1:8000"
 
 
-def test_health():
-    r = requests.get(f"{BASE_URL}/health")
-    print("\n--- Health ---")
+def test_mcp_resources():
+    r = requests.get(f"{BASE_URL}/mcp/resources")
+    print("\n--- MCP Resources ---")
     print(r.json())
 
 
-def test_rpc_methods():
-    r = requests.get(f"{BASE_URL}/rpc/methods")
-    print("\n--- RPC Methods ---")
+def test_mcp_tools():
+    r = requests.get(f"{BASE_URL}/mcp/tools")
+    print("\n--- MCP Tools ---")
     print(r.json())
 
 
-def test_http_rpc():
+def test_mcp_lead_history():
     payload = {
-        "jsonrpc": "2.0",
-        "id": "http_rpc_001",
-        "method": "lead_triage.run",
+        "request_id": "mcp_test_001",
+        "kind": "resource",
+        "name": "lead_history",
         "params": {
-            "task_id": "http_task_001",
-            "task_type": "new_lead",
-            "payload": {
-                "lead_id": "lead_http_faizan",
-                "lead_name": "Faizan",
-                "message": "I want enterprise pricing and a demo for my team.",
-                "source": "website",
-            },
-            "context": {},
-            "session_id": "session_http_faizan",
-            "lead_id": "lead_http_faizan",
+            "lead_id": "lead_http_chain_faizan"
         }
     }
 
-    r = requests.post(f"{BASE_URL}/rpc", json=payload)
-    print("\n--- HTTP JSON-RPC ---")
+    r = requests.post(f"{BASE_URL}/mcp", json=payload)
+    print("\n--- MCP Lead History ---")
     print(r.json())
 
 
-def test_http_execute_chain():
+def test_mcp_episodic_lessons():
     payload = {
-        "task_id": "http_chain_001",
-        "task_type": "new_lead",
-        "payload": {
-            "lead_id": "lead_http_chain_faizan",
-            "lead_name": "Faizan",
-            "message": "We want enterprise pricing, onboarding details, and a demo.",
-            "source": "website",
-        },
-        "context": {},
-        "session_id": "session_http_chain_faizan",
-        "lead_id": "lead_http_chain_faizan",
+        "request_id": "mcp_test_002",
+        "kind": "resource",
+        "name": "episodic_lessons",
+        "params": {
+            "tags": ["new_lead", "buying_intent"]
+        }
     }
 
-    r = requests.post(f"{BASE_URL}/tasks/execute-chain", json=payload)
-    print("\n--- HTTP Execute Chain ---")
-    print(r.status_code)
-    print(r.text)
+    r = requests.post(f"{BASE_URL}/mcp", json=payload)
+    print("\n--- MCP Episodic Lessons ---")
+    print(r.json())
+
+
+def test_mcp_campaign_analytics():
+    payload = {
+        "request_id": "mcp_test_003",
+        "kind": "resource",
+        "name": "campaign_analytics",
+        "params": {
+            "channel": "LinkedIn Ads",
+            "ctr": 0.011,
+            "conversion_rate": 0.018
+        }
+    }
+
+    r = requests.post(f"{BASE_URL}/mcp", json=payload)
+    print("\n--- MCP Campaign Analytics ---")
+    print(r.json())
 
 
 if __name__ == "__main__":
-    test_health()
-    test_rpc_methods()
-    test_http_rpc()
-    test_http_execute_chain()
+    test_mcp_resources()
+    test_mcp_tools()
+    test_mcp_lead_history()
+    test_mcp_episodic_lessons()
+    test_mcp_campaign_analytics()

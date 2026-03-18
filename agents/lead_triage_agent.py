@@ -25,6 +25,8 @@ from orchestrator.contracts import AgentTask, AgentResult
 from orchestrator.llm_client import LLMClient
 from orchestrator.json_utils import parse_json_response
 from orchestrator.prompt_utils import format_memory_for_prompt
+from orchestrator.prompt_utils import format_memory_for_prompt, format_mcp_for_prompt
+
 
 
 class LeadTriageAgent(BaseAgent):
@@ -37,6 +39,7 @@ class LeadTriageAgent(BaseAgent):
         source = task.payload.get("source", "unknown")
         lead_name = task.payload.get("lead_name", "unknown")
         memory_context = format_memory_for_prompt(task.context.get("memory", {}))
+        mcp_context = format_mcp_for_prompt(task.context.get("mcp", {}))
 
         system_prompt = """
 You are a Lead Triage Agent for a marketing automation system.
@@ -78,6 +81,8 @@ Lead message: {message}
 
 Relevant memory:
 {memory_context}
+MCP context:
+{mcp_context}
 """
 
         try:
