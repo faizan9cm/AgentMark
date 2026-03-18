@@ -25,6 +25,7 @@ from communication.json_rpc import (
 from communication.registry import AgentMethodRegistry
 from communication.errors import METHOD_NOT_FOUND, INTERNAL_ERROR, INVALID_PARAMS
 from communication.handoff import AgentHandoff
+from typing import Callable, Optional
 
 
 class AgentRuntime:
@@ -41,6 +42,7 @@ class AgentRuntime:
         self.consolidator = MemoryConsolidator(self.memory)
         self.registry = AgentMethodRegistry()
         self._register_agent_methods()
+        self.event_callback = None
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -56,6 +58,17 @@ class AgentRuntime:
     def execute_task(self, task: AgentTask) -> AgentResult:
         session_id = task.session_id or task.task_id
         lead_id = task.lead_id or task.payload.get("lead_id")
+
+        self.emit_event(
+            event_type="task_received",
+            session_id=session_id,
+            task_id=task.task_id,
+            agent_name="runtime",
+            payload={
+                "task_type": task.task_type,
+                "assigned_by": task.assigned_by,
+            },
+        )
 
         self.memory.short_term.create_or_get(session_id=session_id, lead_id=lead_id)
 
@@ -80,15 +93,35 @@ class AgentRuntime:
         if task.task_type == "campaign_review":
             episodic_tags.append("campaign_review")
 
-        task.context["memory"] = self.retriever.build_agent_memory_context(
-            session_id=session_id,
-            lead_id=lead_id,
-            episodic_tags=episodic_tags,
-        )
+        task.context = {
+            **task.context,
+            "memory": self.retriever.build_agent_memory_context(
+                session_id=session_id,
+                lead_id=lead_id,
+                episodic_tags=episodic_tags,
+            )
+        }
 
         agent_name = self.route_task(task.task_type)
         agent = self.agents[agent_name]
         result = agent.run(task)
+
+        if task.task_type == "campaign_review":
+            self.emit_event(
+                event_type="campaign_update",
+                session_id=session_id,
+                task_id=task.task_id,
+                agent_name=result.agent_name,
+                payload=result.output,
+            )
+
+        self.emit_event(
+            event_type="agent_result",
+            session_id=session_id,
+            task_id=task.task_id,
+            agent_name=result.agent_name,
+            payload=result.model_dump(),
+        )
 
         self.memory.short_term.add_message(
             session_id=session_id,
@@ -101,7 +134,7 @@ class AgentRuntime:
                 or "Agent completed task."
         )
 
-        if lead_id:
+        if lead_id and result.status == "success":
             self.memory.long_term.create_or_get(
                 lead_id=lead_id,
                 lead_name=task.payload.get("lead_name"),
@@ -119,20 +152,26 @@ class AgentRuntime:
             )
         
         if lead_id and task.payload.get("source"):
-            self.memory.semantic.add_triplet(
-                subject=lead_id,
-                relation="came_from",
-                object_=task.payload["source"],
-                metadata={"task_id": task.task_id}
-            )
+            try:
+                self.memory.semantic.add_triplet(
+                    subject=lead_id,
+                    relation="came_from",
+                    object_=task.payload["source"],
+                    metadata={"task_id": task.task_id}
+                )
+            except Exception:
+                pass
 
         if lead_id and result.output.get("category"):
-            self.memory.semantic.add_triplet(
-                subject=lead_id,
-                relation="classified_as",
-                object_=result.output["category"],
-                metadata={"agent": result.agent_name}
-            )
+            try:
+                self.memory.semantic.add_triplet(
+                    subject=lead_id,
+                    relation="classified_as",
+                    object_=result.output["category"],
+                    metadata={"agent": result.agent_name}
+                )
+            except Exception:
+                pass
         
         if (
             result.status == "success"
@@ -179,6 +218,14 @@ class AgentRuntime:
                     reason="Lead triage determined that engagement follow-up is required.",
                 )
 
+                self.emit_event(
+                    event_type="handoff_created",
+                    session_id=current_task.session_id,
+                    task_id=handoff.task_id,
+                    agent_name=result.agent_name,
+                    payload=handoff.model_dump(),
+                )
+
                 if current_task.session_id:
                     self.memory.short_term.add_message(
                         session_id=current_task.session_id,
@@ -209,6 +256,14 @@ class AgentRuntime:
                     next_task_type="strategy_review",
                     payload=result.output,
                     reason="Campaign optimizer escalated the issue for strategic review.",
+                )
+
+                self.emit_event(
+                    event_type="handoff_created",
+                    session_id=current_task.session_id,
+                    task_id=handoff.task_id,
+                    agent_name=result.agent_name,
+                    payload=handoff.model_dump(),
                 )
 
                 if current_task.session_id:
@@ -371,6 +426,9 @@ class AgentRuntime:
                     data={"details": str(e)},
                 ),
             ).model_dump()
+
+    def list_rpc_methods(self):
+        return self.registry.list_methods()
     
     def build_handoff(
         self,
@@ -390,6 +448,63 @@ class AgentRuntime:
             session_id=current_task.session_id,
             lead_id=current_task.lead_id,
             payload=payload,
-            context=current_task.context,
+            context=self.compact_context_for_handoff(current_task.context),
             reason=reason,
         )
+    
+    def set_event_callback(self, callback: Optional[Callable[[dict], None]]):
+        self.event_callback = callback
+
+    def emit_event(
+        self,
+        event_type: str,
+        session_id: str | None,
+        task_id: str | None,
+        agent_name: str | None,
+        payload: dict,
+    ) -> None:
+        if self.event_callback:
+            try:
+                self.event_callback({
+                    "event_type": event_type,
+                    "session_id": session_id,
+                    "task_id": task_id,
+                    "agent_name": agent_name,
+                    "payload": payload,
+                })
+            except Exception:
+                pass
+    
+    def compact_context_for_handoff(self, context: dict) -> dict:
+        memory = context.get("memory", {})
+
+        compact_memory = {
+            "short_term": {
+                "latest_summary": memory.get("short_term", {}).get("latest_summary"),
+                "latest_agent": memory.get("short_term", {}).get("latest_agent"),
+            },
+            "long_term": {
+                "summary": memory.get("long_term", {}).get("summary"),
+                "latest_status": memory.get("long_term", {}).get("latest_status"),
+            },
+            "episodic": [
+                {
+                    "outcome": e.get("outcome"),
+                    "success_score": e.get("success_score"),
+                    "tags": e.get("tags"),
+                }
+                for e in memory.get("episodic", [])[:2]
+            ],
+            "semantic": [
+                {
+                    "subject": s.get("subject"),
+                    "relation": s.get("relation"),
+                    "object": s.get("object"),
+                }
+                for s in memory.get("semantic", [])[:3]
+            ],
+        }
+
+        new_context = dict(context)
+        new_context["memory"] = compact_memory
+        return new_context

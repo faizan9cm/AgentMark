@@ -1,82 +1,68 @@
-from orchestrator.agent_runtime import AgentRuntime
-from orchestrator.contracts import AgentTask
-from orchestrator.event_types import NEW_LEAD
+import requests
+
+BASE_URL = "http://127.0.0.1:8000"
 
 
-def test_json_rpc_lead_triage():
-    runtime = AgentRuntime()
+def test_health():
+    r = requests.get(f"{BASE_URL}/health")
+    print("\n--- Health ---")
+    print(r.json())
 
-    request = {
+
+def test_rpc_methods():
+    r = requests.get(f"{BASE_URL}/rpc/methods")
+    print("\n--- RPC Methods ---")
+    print(r.json())
+
+
+def test_http_rpc():
+    payload = {
         "jsonrpc": "2.0",
-        "id": "rpc_001",
+        "id": "http_rpc_001",
         "method": "lead_triage.run",
         "params": {
-            "task_id": "rpc_task_001",
+            "task_id": "http_task_001",
             "task_type": "new_lead",
             "payload": {
-                "lead_id": "lead_rpc_faizan",
+                "lead_id": "lead_http_faizan",
                 "lead_name": "Faizan",
-                "message": "Hi, I want enterprise pricing and a demo for my team.",
-                "source": "website"
+                "message": "I want enterprise pricing and a demo for my team.",
+                "source": "website",
             },
             "context": {},
-            "session_id": "session_rpc_faizan",
-            "lead_id": "lead_rpc_faizan"
+            "session_id": "session_http_faizan",
+            "lead_id": "lead_http_faizan",
         }
     }
 
-    response = runtime.handle_json_rpc(request)
-
-    print("\n--- JSON-RPC Response ---")
-    print(response)
-
-
-def test_json_rpc_invalid_method():
-    runtime = AgentRuntime()
-
-    request = {
-        "jsonrpc": "2.0",
-        "id": "rpc_002",
-        "method": "unknown.method",
-        "params": {}
-    }
-
-    response = runtime.handle_json_rpc(request)
-
-    print("\n--- JSON-RPC Invalid Method Response ---")
-    print(response)
+    r = requests.post(f"{BASE_URL}/rpc", json=payload)
+    print("\n--- HTTP JSON-RPC ---")
+    print(r.json())
 
 
-def test_handoff_chain():
-    runtime = AgentRuntime()
-
-    task = AgentTask(
-        task_id="handoff_task_001",
-        task_type=NEW_LEAD,
-        payload={
-            "lead_id": "lead_handoff_faizan",
+def test_http_execute_chain():
+    payload = {
+        "task_id": "http_chain_001",
+        "task_type": "new_lead",
+        "payload": {
+            "lead_id": "lead_http_chain_faizan",
             "lead_name": "Faizan",
-            "message": "We want enterprise pricing, onboarding details, and a demo for our team.",
+            "message": "We want enterprise pricing, onboarding details, and a demo.",
             "source": "website",
         },
-        context={},
-        session_id="session_handoff_faizan",
-        lead_id="lead_handoff_faizan",
-    )
+        "context": {},
+        "session_id": "session_http_chain_faizan",
+        "lead_id": "lead_http_chain_faizan",
+    }
 
-    results = runtime.execute_task_chain(task)
-
-    print("\n--- Handoff Chain Results ---")
-    for idx, result in enumerate(results, start=1):
-        print(f"\nStep {idx}")
-        print(result.model_dump())
-
-    print("\n--- Short-Term Memory ---")
-    stm = runtime.memory.short_term.get("session_handoff_faizan")
-    print(stm.model_dump() if stm else None)
+    r = requests.post(f"{BASE_URL}/tasks/execute-chain", json=payload)
+    print("\n--- HTTP Execute Chain ---")
+    print(r.status_code)
+    print(r.text)
 
 
 if __name__ == "__main__":
-    test_json_rpc_lead_triage()
-    test_json_rpc_invalid_method()
-    test_handoff_chain()
+    test_health()
+    test_rpc_methods()
+    test_http_rpc()
+    test_http_execute_chain()
