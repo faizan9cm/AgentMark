@@ -59,8 +59,11 @@ class MemoryRetriever:
         if not lead_id:
             return []
 
-        triplets = self.memory.semantic.query_by_subject(lead_id)
-        return [triplet.model_dump() for triplet in triplets]
+        try:
+            triplets = self.memory.semantic.query_by_subject(lead_id)
+            return [triplet.model_dump() for triplet in triplets]
+        except Exception:
+            return []
 
     def build_agent_memory_context(
         self,

@@ -3,52 +3,80 @@ from orchestrator.contracts import AgentTask
 from orchestrator.event_types import NEW_LEAD
 
 
-def run_consolidation_demo():
+def test_json_rpc_lead_triage():
     runtime = AgentRuntime()
 
-    task1 = AgentTask(
-        task_id="lead_cons_001",
+    request = {
+        "jsonrpc": "2.0",
+        "id": "rpc_001",
+        "method": "lead_triage.run",
+        "params": {
+            "task_id": "rpc_task_001",
+            "task_type": "new_lead",
+            "payload": {
+                "lead_id": "lead_rpc_faizan",
+                "lead_name": "Faizan",
+                "message": "Hi, I want enterprise pricing and a demo for my team.",
+                "source": "website"
+            },
+            "context": {},
+            "session_id": "session_rpc_faizan",
+            "lead_id": "lead_rpc_faizan"
+        }
+    }
+
+    response = runtime.handle_json_rpc(request)
+
+    print("\n--- JSON-RPC Response ---")
+    print(response)
+
+
+def test_json_rpc_invalid_method():
+    runtime = AgentRuntime()
+
+    request = {
+        "jsonrpc": "2.0",
+        "id": "rpc_002",
+        "method": "unknown.method",
+        "params": {}
+    }
+
+    response = runtime.handle_json_rpc(request)
+
+    print("\n--- JSON-RPC Invalid Method Response ---")
+    print(response)
+
+
+def test_handoff_chain():
+    runtime = AgentRuntime()
+
+    task = AgentTask(
+        task_id="handoff_task_001",
         task_type=NEW_LEAD,
         payload={
-            "lead_id": "lead_cons_faizan",
+            "lead_id": "lead_handoff_faizan",
             "lead_name": "Faizan",
-            "message": "Hi, I want enterprise pricing and a demo for my 20-person team.",
-            "source": "website"
+            "message": "We want enterprise pricing, onboarding details, and a demo for our team.",
+            "source": "website",
         },
         context={},
-        session_id="session_cons_faizan",
-        lead_id="lead_cons_faizan",
+        session_id="session_handoff_faizan",
+        lead_id="lead_handoff_faizan",
     )
 
-    task2 = AgentTask(
-        task_id="lead_cons_002",
-        task_type=NEW_LEAD,
-        payload={
-            "lead_id": "lead_cons_faizan",
-            "lead_name": "Faizan",
-            "message": "Following up — we are also evaluating onboarding and support options.",
-            "source": "website"
-        },
-        context={},
-        session_id="session_cons_faizan",
-        lead_id="lead_cons_faizan",
-    )
+    results = runtime.execute_task_chain(task)
 
-    runtime.execute_task_chain(task1)
-    runtime.execute_task_chain(task2)
-
-    print("\n--- Long-Term Memory ---")
-    ltm = runtime.memory.long_term.get("lead_cons_faizan")
-    print(ltm.model_dump() if ltm else None)
+    print("\n--- Handoff Chain Results ---")
+    for idx, result in enumerate(results, start=1):
+        print(f"\nStep {idx}")
+        print(result.model_dump())
 
     print("\n--- Short-Term Memory ---")
-    stm = runtime.memory.short_term.get("session_cons_faizan")
+    stm = runtime.memory.short_term.get("session_handoff_faizan")
     print(stm.model_dump() if stm else None)
-
-    print("\n--- Episodic Memory ---")
-    for episode in runtime.memory.episodic.list_all():
-        print(episode.model_dump())
 
 
 if __name__ == "__main__":
-    run_consolidation_demo()
+    test_json_rpc_lead_triage()
+    test_json_rpc_invalid_method()
+    test_handoff_chain()

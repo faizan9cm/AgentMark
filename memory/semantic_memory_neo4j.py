@@ -34,13 +34,25 @@ class Neo4jSemanticMemory:
     def query_by_subject(self, subject: str) -> List[SemanticMemoryRecord]:
         query = """
         MATCH (s:Entity {name: $subject})-[r:RELATION]->(o:Entity)
-        RETURN s.name AS subject, r.type AS relation, o.name AS object, coalesce(r.metadata_json, "{}") AS metadata_json
+        WHERE s.name IS NOT NULL AND r.type IS NOT NULL AND o.name IS NOT NULL
+        RETURN s.name AS subject,
+               r.type AS relation,
+               o.name AS object,
+               coalesce(r.metadata_json, "{}") AS metadata_json
         """
 
         with self.driver.session() as session:
             result = session.run(query, subject=subject)
             records = []
+
             for record in result:
+                subj = record.get("subject")
+                rel = record.get("relation")
+                obj = record.get("object")
+
+                if not subj or not rel or not obj:
+                    continue
+
                 metadata_json = record.get("metadata_json")
                 try:
                     metadata = json.loads(metadata_json) if metadata_json else {}
@@ -49,24 +61,37 @@ class Neo4jSemanticMemory:
 
                 records.append(
                     SemanticMemoryRecord(
-                        subject=record["subject"],
-                        relation=record["relation"],
-                        object=record["object"],
+                        subject=subj,
+                        relation=rel,
+                        object=obj,
                         metadata=metadata,
                     )
                 )
+
             return records
 
     def list_all(self) -> List[SemanticMemoryRecord]:
         query = """
         MATCH (s:Entity)-[r:RELATION]->(o:Entity)
-        RETURN s.name AS subject, r.type AS relation, o.name AS object, coalesce(r.metadata_json, "{}") AS metadata_json
+        WHERE s.name IS NOT NULL AND r.type IS NOT NULL AND o.name IS NOT NULL
+        RETURN s.name AS subject,
+               r.type AS relation,
+               o.name AS object,
+               coalesce(r.metadata_json, "{}") AS metadata_json
         """
 
         with self.driver.session() as session:
             result = session.run(query)
             records = []
+
             for record in result:
+                subj = record.get("subject")
+                rel = record.get("relation")
+                obj = record.get("object")
+
+                if not subj or not rel or not obj:
+                    continue
+
                 metadata_json = record.get("metadata_json")
                 try:
                     metadata = json.loads(metadata_json) if metadata_json else {}
@@ -75,10 +100,11 @@ class Neo4jSemanticMemory:
 
                 records.append(
                     SemanticMemoryRecord(
-                        subject=record["subject"],
-                        relation=record["relation"],
-                        object=record["object"],
+                        subject=subj,
+                        relation=rel,
+                        object=obj,
                         metadata=metadata,
                     )
                 )
+
             return records

@@ -16,6 +16,15 @@ import json
 from memory.retriever import MemoryRetriever
 from reflection.reflection_engine import ReflectionEngine
 from memory.consolidator import MemoryConsolidator
+from communication.json_rpc import (
+    JsonRpcRequest,
+    JsonRpcSuccessResponse,
+    JsonRpcErrorObject,
+    JsonRpcErrorResponse,
+)
+from communication.registry import AgentMethodRegistry
+from communication.errors import METHOD_NOT_FOUND, INTERNAL_ERROR, INVALID_PARAMS
+from communication.handoff import AgentHandoff
 
 
 class AgentRuntime:
@@ -30,6 +39,8 @@ class AgentRuntime:
         self.retriever = MemoryRetriever(self.memory)
         self.reflection = ReflectionEngine()
         self.consolidator = MemoryConsolidator(self.memory)
+        self.registry = AgentMethodRegistry()
+        self._register_agent_methods()
 
     def route_task(self, task_type: str) -> str:
         if task_type == NEW_LEAD:
@@ -153,9 +164,11 @@ class AgentRuntime:
             results.append(result)
 
             if result.next_action == "engagement_request":
-                    current_task = AgentTask(
-                    task_id=current_task.task_id + "_engagement",
-                    task_type="engagement_request",
+                handoff = self.build_handoff(
+                    from_agent=result.agent_name,
+                    to_agent="engagement_agent",
+                    current_task=current_task,
+                    next_task_type="engagement_request",
                     payload={
                         "lead_id": current_task.payload.get("lead_id"),
                         "lead_name": current_task.payload.get("lead_name", "there"),
@@ -163,20 +176,62 @@ class AgentRuntime:
                         "message": current_task.payload.get("message", ""),
                         "source": current_task.payload.get("source", "unknown"),
                     },
-                    context={"previous_result": result.output},
+                    reason="Lead triage determined that engagement follow-up is required.",
+                )
+
+                if current_task.session_id:
+                    self.memory.short_term.add_message(
+                        session_id=current_task.session_id,
+                        role="handoff",
+                        content=handoff.model_dump_json(),
+                        agent_name=result.agent_name,
+                        summary=handoff.reason,
+                    )
+
+                current_task = AgentTask(
+                    task_id=handoff.task_id,
+                    task_type=handoff.task_type,
+                    payload=handoff.payload,
+                    context={
+                        **handoff.context,
+                        "handoff": handoff.model_dump(),
+                        "previous_result": result.output,
+                    },
                     assigned_by=result.agent_name,
-                    session_id=current_task.session_id,
-                    lead_id=current_task.lead_id,
+                    session_id=handoff.session_id,
+                    lead_id=handoff.lead_id,
                 )
             elif result.next_action == "strategy_review":
-                    current_task = AgentTask(
-                    task_id=current_task.task_id + "_strategy",
-                    task_type="strategy_review",
+                handoff = self.build_handoff(
+                    from_agent=result.agent_name,
+                    to_agent="strategy_agent",
+                    current_task=current_task,
+                    next_task_type="strategy_review",
                     payload=result.output,
-                    context={"previous_result": result.output},
+                    reason="Campaign optimizer escalated the issue for strategic review.",
+                )
+
+                if current_task.session_id:
+                    self.memory.short_term.add_message(
+                        session_id=current_task.session_id,
+                        role="handoff",
+                        content=handoff.model_dump_json(),
+                        agent_name=result.agent_name,
+                        summary=handoff.reason,
+                    )
+
+                current_task = AgentTask(
+                    task_id=handoff.task_id,
+                    task_type=handoff.task_type,
+                    payload=handoff.payload,
+                    context={
+                        **handoff.context,
+                        "handoff": handoff.model_dump(),
+                        "previous_result": result.output,
+                    },
                     assigned_by=result.agent_name,
-                    session_id=current_task.session_id,
-                    lead_id=current_task.lead_id,
+                    session_id=handoff.session_id,
+                    lead_id=handoff.lead_id,
                 )
             else:
                 current_task = None
@@ -251,3 +306,90 @@ class AgentRuntime:
             self.consolidator.consolidate_episodic_memory()
         except Exception:
             pass
+
+    def _register_agent_methods(self) -> None:
+        self.registry.register("lead_triage.run", self._rpc_lead_triage_run)
+        self.registry.register("engagement.run", self._rpc_engagement_run)
+        self.registry.register("campaign_optimizer.run", self._rpc_campaign_optimizer_run)
+        self.registry.register("strategy.run", self._rpc_strategy_run)
+    
+    def _rpc_lead_triage_run(self, params: dict) -> dict:
+        task = AgentTask(**params)
+        result = self.execute_task(task)
+        return result.model_dump()
+
+    def _rpc_engagement_run(self, params: dict) -> dict:
+        task = AgentTask(**params)
+        result = self.execute_task(task)
+        return result.model_dump()
+
+    def _rpc_campaign_optimizer_run(self, params: dict) -> dict:
+        task = AgentTask(**params)
+        result = self.execute_task(task)
+        return result.model_dump()
+
+    def _rpc_strategy_run(self, params: dict) -> dict:
+        task = AgentTask(**params)
+        result = self.execute_task(task)
+        return result.model_dump()
+
+    def handle_json_rpc(self, request_data: dict) -> dict:
+        try:
+            request = JsonRpcRequest(**request_data)
+        except Exception as e:
+            return JsonRpcErrorResponse(
+                id=request_data.get("id", "unknown"),
+                error=JsonRpcErrorObject(
+                    code=INVALID_PARAMS,
+                    message="Invalid JSON-RPC request",
+                    data={"details": str(e)},
+                ),
+            ).model_dump()
+
+        handler = self.registry.get(request.method)
+        if not handler:
+            return JsonRpcErrorResponse(
+                id=request.id,
+                error=JsonRpcErrorObject(
+                    code=METHOD_NOT_FOUND,
+                    message=f"Method not found: {request.method}",
+                ),
+            ).model_dump()
+
+        try:
+            result = handler(request.params)
+            return JsonRpcSuccessResponse(
+                id=request.id,
+                result=result,
+            ).model_dump()
+        except Exception as e:
+            return JsonRpcErrorResponse(
+                id=request.id,
+                error=JsonRpcErrorObject(
+                    code=INTERNAL_ERROR,
+                    message="Internal server error",
+                    data={"details": str(e)},
+                ),
+            ).model_dump()
+    
+    def build_handoff(
+        self,
+        from_agent: str,
+        to_agent: str,
+        current_task: AgentTask,
+        next_task_type: str,
+        payload: dict,
+        reason: str,
+    ) -> AgentHandoff:
+        return AgentHandoff(
+            handoff_id=f"handoff_{current_task.task_id}_{to_agent}",
+            from_agent=from_agent,
+            to_agent=to_agent,
+            task_id=f"{current_task.task_id}_{to_agent}",
+            task_type=next_task_type,
+            session_id=current_task.session_id,
+            lead_id=current_task.lead_id,
+            payload=payload,
+            context=current_task.context,
+            reason=reason,
+        )
