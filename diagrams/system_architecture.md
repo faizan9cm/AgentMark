@@ -1,11 +1,31 @@
-Strategy Agent
-    |
-Task Manager Agent
-    |
------------------------------------------
-|               |                       |
-Lead Triage   Engagement     Campaign Optimization
-Agent         Agent          Agent
-    \             |                /
-     \            |               /
-          Shared Memory Layer
+```text
+                           ┌──────────────────────┐
+                           │    Strategy Agent    │
+                           └──────────┬───────────┘
+                                      │
+                           ┌──────────▼───────────┐
+                           │   Task Manager /     │
+                           │     Agent Runtime    │
+                           └───────┬───────┬──────┘
+                                   │       │
+                ┌──────────────────┘       └──────────────────┐
+                │                                             │
+      ┌─────────▼─────────┐                         ┌─────────▼─────────┐
+      │ Lead Triage Agent │                         │ Engagement Agent  │
+      └─────────┬─────────┘                         └─────────┬─────────┘
+                │                                             │
+                └──────────────────┬──────────────────────────┘
+                                   │
+                         ┌─────────▼─────────┐
+                         │ Campaign Optimizer│
+                         └─────────┬─────────┘
+                                   │
+                    ┌──────────────▼──────────────┐
+                    │ Communication + MCP Layer   │
+                    │ JSON-RPC / HTTP / WebSocket │
+                    └──────────────┬──────────────┘
+                                   │
+               ┌───────────────────▼────────────────────┐
+               │          Memory & Data Layer           │
+               │ Redis / Postgres / Neo4j / MCP Access  │
+               └────────────────────────────────────────┘
