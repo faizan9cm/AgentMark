@@ -4,6 +4,8 @@ from orchestrator.agent_runtime import AgentRuntime
 from orchestrator.contracts import AgentTask
 from api.websocket_manager import WebSocketManager
 from starlette.concurrency import run_in_threadpool
+from interaction.controller import InteractionController
+from interaction.models import UserMessage
 
 app = FastAPI(title="AgentMark Transport Layer")
 app.state.main_loop = None
@@ -14,6 +16,7 @@ async def startup_event():
 
 runtime = AgentRuntime()
 ws_manager = WebSocketManager()
+interaction_controller = InteractionController(runtime=runtime)
 
 
 def runtime_event_callback(event: dict):
@@ -76,6 +79,12 @@ def list_mcp_tools():
 def handle_mcp(request_data: dict):
     return runtime.mcp_server.handle_request(request_data)
 
+@app.post("/interact")
+async def interact(message_data: dict):
+    user_message = UserMessage(**message_data)
+    result = await run_in_threadpool(interaction_controller.handle_message, user_message)
+    return result.model_dump()
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -121,6 +130,27 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         "event_type": "transport_error",
                         "session_id": session_id,
                         "task_id": incoming.get("data", {}).get("task_id"),
+                        "agent_name": "transport",
+                        "payload": {"message": str(e)},
+                    })
+            
+            elif incoming.get("type") == "interact":
+                try:
+                    user_message = UserMessage(**incoming["data"])
+                    result = await run_in_threadpool(interaction_controller.handle_message, user_message)
+
+                    await websocket.send_json({
+                        "event_type": "interaction_complete",
+                        "session_id": result.session_id,
+                        "task_id": None,
+                        "agent_name": "interaction_controller",
+                        "payload": result.model_dump(),
+                    })
+                except Exception as e:
+                    await websocket.send_json({
+                        "event_type": "transport_error",
+                        "session_id": session_id,
+                        "task_id": None,
                         "agent_name": "transport",
                         "payload": {"message": str(e)},
                     })

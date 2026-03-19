@@ -62,7 +62,7 @@ class AgentRuntime:
             return "strategy_agent"
         raise ValueError(f"Unknown task type: {task_type}")
 
-    def execute_task(self, task: AgentTask) -> AgentResult:
+    def execute_task(self, task: AgentTask, run_reflection: bool = True) -> AgentResult:
         session_id = task.session_id or task.task_id
         lead_id = task.lead_id or task.payload.get("lead_id")
 
@@ -216,18 +216,18 @@ class AgentRuntime:
                 )
             )
         
-        if self.enable_reflection:
+        if run_reflection and self.enable_reflection:
             self.reflect_on_result(task, result)
 
         return result
 
-    def execute_task_chain(self, task: AgentTask) -> list[AgentResult]:
+    def execute_task_chain(self, task: AgentTask, run_post_processing: bool = True) -> list[AgentResult]:
         results = []
 
         current_task = task
 
         while current_task is not None:
-            result = self.execute_task(current_task)
+            result = self.execute_task(current_task, run_reflection=run_post_processing)
             results.append(result)
 
             if result.next_action == "engagement_request":
@@ -321,7 +321,7 @@ class AgentRuntime:
             
         session_id = task.session_id
         lead_id = task.lead_id
-        if self.enable_consolidation:
+        if run_post_processing and self.enable_consolidation:
             self.consolidate_after_chain(session_id=session_id, lead_id=lead_id)
 
         return results
