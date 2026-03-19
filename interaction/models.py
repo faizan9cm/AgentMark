@@ -15,3 +15,4 @@ class InteractionResult(BaseModel):
     lead_id: Optional[str] = None
     detected_task_type: str
     runtime_results: list[dict]
+    trace_run_id: Optional[str] = None

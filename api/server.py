@@ -85,6 +85,33 @@ async def interact(message_data: dict):
     result = await run_in_threadpool(interaction_controller.handle_message, user_message)
     return result.model_dump()
 
+@app.get("/traces")
+def list_traces():
+    return {"runs": runtime.list_trace_runs()}
+
+
+@app.get("/traces/{run_id}")
+def get_trace(run_id: str):
+    result = runtime.get_trace_run(run_id)
+    if not result:
+        return {"error": "trace run not found"}
+    return result
+
+
+@app.get("/traces/{run_id}/graph")
+def get_trace_graph(run_id: str):
+    return runtime.get_trace_graph(run_id)
+
+
+@app.get("/metrics/latency")
+def get_latency_metrics():
+    return runtime.get_latency_metrics()
+
+
+@app.get("/metrics/cost")
+def get_cost_metrics():
+    return runtime.get_cost_metrics()
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):

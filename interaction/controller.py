@@ -57,10 +57,12 @@ class InteractionController:
         )
 
         results = self.runtime.execute_task_chain(task, run_post_processing=False)
+        trace_run_id = task.context.get("trace_run_id")
 
         return InteractionResult(
             session_id=session_id,
             lead_id=lead_id,
             detected_task_type=task_type,
             runtime_results=[result.model_dump() for result in results],
+            trace_run_id=trace_run_id,
         )
