@@ -123,63 +123,61 @@ Each agent handoff preserves:
 
 AgentMark includes a full observability system:
 
-🔍 Trace Runs
-
+### 🔍 Trace Runs
 Each interaction generates a trace run
 
-⚡ Latency Tracking
-
+### ⚡ Latency Tracking
 Per-agent execution latency
 
-💰 Cost Estimation
-
+### 💰 Cost Estimation
 Token-based cost tracking per agent
 
-🔗 Execution Graph
-
+### 🔗 Execution Graph
 Visual graph of agent flow
 
-Example:
+#### Example
 
+
+```json
 {
   "run_id": "run_xyz",
   "nodes": ["lead_triage_agent", "engagement_agent"],
   "edges": ["handoff"]
 }
-
+```
 
 ---
 
 ## 💬 Frontend (React UI)
 
-AgentMark includes a production-style UI dashboard
 
-- Features
+AgentMark includes a production-style UI dashboard.
 
-* Chat-based interaction
-* Live event stream (WebSocket)
+### Features
 
-- Dashboard:
+- Chat-based interaction  
+- Live event stream (WebSocket)
 
-* cost metrics
-* latency metrics
+### Dashboard
 
+- Cost metrics  
+- Latency metrics  
 
-- Runs page:
+### Runs Page
 
-* history of executions
+- History of executions  
 
+### Trace Page
 
-- Trace page:
-
-* execution timeline
-* graph visualization
+- Execution timeline  
+- Graph visualization
 
 ---
 
 ## 📡 Real-Time Execution (WebSocket)
 
-Example event stream:
+#### Example event stream:
+
 
 ```json
 {
