@@ -78,29 +78,26 @@ class Tracer:
         payload_update: dict | None = None,
     ) -> None:
         spans = self.store.get_spans(run_id)
-        updated_spans = []
+        target = next((s for s in spans if s.span_id == span_id), None)
+        if not target:
+            return
 
-        for span in spans:
-            if span.span_id == span_id:
-                new_payload = dict(span.payload)
-                if payload_update:
-                    new_payload.update(payload_update)
+        new_payload = dict(target.payload)
+        if payload_update:
+            new_payload.update(payload_update)
 
-                updated_span = span.model_copy(update={
-                    "status": status,
-                    "ended_at": utc_now_iso(),
-                    "latency_ms": latency_ms,
-                    "model_name": model_name,
-                    "estimated_input_tokens": estimated_input_tokens,
-                    "estimated_output_tokens": estimated_output_tokens,
-                    "estimated_cost_usd": estimated_cost_usd,
-                    "payload": new_payload,
-                })
-                updated_spans.append(updated_span)
-            else:
-                updated_spans.append(span)
-
-        self.store.spans[run_id] = updated_spans
+        self.store.update_span(
+            run_id=run_id,
+            span_id=span_id,
+            status=status,
+            ended_at=utc_now_iso(),
+            latency_ms=latency_ms,
+            model_name=model_name,
+            estimated_input_tokens=estimated_input_tokens,
+            estimated_output_tokens=estimated_output_tokens,
+            estimated_cost_usd=estimated_cost_usd,
+            payload=new_payload,
+        )
 
     def add_edge(self, run_id: str, from_node: str, to_node: str, edge_type: str, reason: str | None = None) -> None:
         edge = TraceEdge(

@@ -1,8 +1,11 @@
 import uuid
+
 from interaction.models import UserMessage, InteractionResult
 from interaction.session_manager import SessionManager
 from interaction.lead_manager import LeadManager
 from interaction.intent_router import IntentRouter
+from interaction.general_responder import GeneralResponder
+
 from orchestrator.agent_runtime import AgentRuntime
 from orchestrator.contracts import AgentTask
 
@@ -13,11 +16,12 @@ class InteractionController:
         self.session_manager = SessionManager()
         self.lead_manager = LeadManager()
         self.intent_router = IntentRouter()
+        self.general_responder = GeneralResponder()
 
     def _build_payload(self, user_message: UserMessage, task_type: str, lead_id: str | None) -> dict:
         base_payload = {
             "lead_id": lead_id,
-            "lead_name": user_message.user_name or "Unknown",
+            "lead_name": user_message.user_name,
             "message": user_message.message,
             "source": user_message.metadata.get("source", "chat_interface"),
         }
@@ -39,8 +43,56 @@ class InteractionController:
         is_lead_related = routing["is_lead_related"]
 
         if task_type == "general_inquiry":
-            task_type = "new_lead"
-            is_lead_related = True
+            self.runtime.memory.short_term.create_or_get(
+                session_id=session_id,
+                lead_id=None,
+            )
+
+            self.runtime.memory.short_term.add_message(
+                session_id=session_id,
+                role="user",
+                content=user_message.message,
+                agent_name="user",
+                summary="General user message.",
+            )
+
+            short_term = self.runtime.memory.short_term.get(session_id)
+            recent_messages = short_term.messages if short_term else []
+
+            reply = self.general_responder.respond(
+                message=user_message.message,
+                user_name=user_message.user_name,
+                session_id=session_id,
+                recent_messages=recent_messages,
+            )
+
+            self.runtime.memory.short_term.add_message(
+                session_id=session_id,
+                role="assistant",
+                content=reply["response_message"],
+                agent_name="general_responder",
+                summary="General responder reply.",
+            )
+
+            return InteractionResult(
+                session_id=session_id,
+                lead_id=None,
+                detected_task_type=task_type,
+                runtime_results=[
+                    {
+                        "task_id": f"interaction_general_{uuid.uuid4().hex[:10]}",
+                        "agent_name": "general_responder",
+                        "status": "success",
+                        "output": {
+                            "response_message": reply["response_message"],
+                            "response_type": reply["response_type"],
+                            "routing_reason": routing["reason"],
+                        },
+                        "next_action": None,
+                    }
+                ],
+                trace_run_id=None,
+            )
 
         lead_id = self.lead_manager.get_or_create_lead_id(
             lead_id=user_message.lead_id,

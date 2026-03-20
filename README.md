@@ -119,22 +119,61 @@ Each agent handoff preserves:
 
 ---
 
-## 🧱 MCP Layer (Model Context Protocol)
+## 📊 Observability
 
-AgentMark includes an MCP-style layer for structured data access.
+AgentMark includes a full observability system:
 
-### Resources
+🔍 Trace Runs
 
-* lead history
-* episodic lessons
-* semantic relations
-* campaign analytics
+Each interaction generates a trace run
 
-### Tools
+⚡ Latency Tracking
 
-* update lead preferences
+Per-agent execution latency
 
-Agents consume MCP data instead of directly querying databases.
+💰 Cost Estimation
+
+Token-based cost tracking per agent
+
+🔗 Execution Graph
+
+Visual graph of agent flow
+
+Example:
+
+{
+  "run_id": "run_xyz",
+  "nodes": ["lead_triage_agent", "engagement_agent"],
+  "edges": ["handoff"]
+}
+
+
+---
+
+## 💬 Frontend (React UI)
+
+AgentMark includes a production-style UI dashboard
+
+- Features
+
+* Chat-based interaction
+* Live event stream (WebSocket)
+
+- Dashboard:
+
+* cost metrics
+* latency metrics
+
+
+- Runs page:
+
+* history of executions
+
+
+- Trace page:
+
+* execution timeline
+* graph visualization
 
 ---
 
@@ -152,17 +191,6 @@ Example event stream:
   }
 }
 ```
-
----
-
-## 📊 Evaluation Pipeline
-
-The system includes a full benchmark pipeline:
-
-* dataset-based evaluation
-* automated metrics
-* report generation
-* experiment scaffolding
 
 Run:
 
@@ -186,7 +214,27 @@ python -m evaluation.run_benchmarks
 
 ---
 
-## ⚙️ Deployment
+
+## 🧱 MCP Layer (Model Context Protocol)
+
+AgentMark includes an MCP-style layer for structured data access.
+
+### Resources
+
+* lead history
+* episodic lessons
+* semantic relations
+* campaign analytics
+
+### Tools
+
+* update lead preferences
+
+Agents consume MCP data instead of directly querying databases.
+
+---
+
+## 🖥️ Running the Full System
 
 ### 1. Start storage
 
@@ -206,19 +254,25 @@ venv\Scripts\activate
 uvicorn api.server:app --reload
 ```
 
-### 4. Test HTTP
+### 4. Start UI
 
 ```bash
-python main.py
+cd frontend
+npm install
+npm run dev
+```
+- Frontend runs on:
+```
+http://localhost:5173
 ```
 
-### 5. Test WebSocket
+### 5. Test WebSocket (Optional)
 
 ```bash
 python ws_test.py
 ```
 
-### 6. Run benchmarks
+### 6. Run benchmarks (Optional)
 
 ```bash
 python -m evaluation.run_benchmarks
@@ -265,20 +319,25 @@ python -m evaluation.run_benchmarks
 ## 📂 Repository Structure
 
 ```text
-agentic-marketing-system
-├── agents
-├── api
-├── communication
-├── deployment
-├── diagrams
-├── docs
-├── evaluation
-├── experiments
-├── managers
-├── mcp_layer
-├── memory
-├── orchestrator
-├── reflection
+AgentMark/
+├── agents/
+├── api/
+├── communication/
+├── deployment/
+├── diagrams/
+├── evaluation/
+├── experiments/
+├── frontend/
+│   ├── src/
+│   ├── package.json
+│   └── index.html
+├── interaction/
+├── managers/
+├── mcp_layer/
+├── memory/
+├── observability/
+├── orchestrator/
+├── reflection/
 ├── main.py
 ├── ws_test.py
 └── README.md

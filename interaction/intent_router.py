@@ -7,6 +7,31 @@ class IntentRouter:
         self.llm = LLMClient()
 
     def detect_task_type(self, message: str) -> dict:
+        text = (message or "").strip().lower()
+
+        # Fast rule-based routing first
+        if text in {"hi", "hello", "hey", "hi there", "hello there"}:
+            return {
+                "task_type": "general_inquiry",
+                "is_lead_related": False,
+                "reason": "Simple greeting detected."
+            }
+
+        if any(word in text for word in ["pricing", "demo", "enterprise", "onboarding", "support"]):
+            return {
+                "task_type": "new_lead",
+                "is_lead_related": True,
+                "reason": "Lead-like buying intent detected from keywords."
+            }
+
+        if any(word in text for word in ["ctr", "conversion", "campaign", "ads"]):
+            return {
+                "task_type": "campaign_review",
+                "is_lead_related": False,
+                "reason": "Campaign analytics intent detected from keywords."
+            }
+
+        # LLM fallback only if rules did not match
         system_prompt = """
 You are an intent router for a multi-agent marketing system.
 

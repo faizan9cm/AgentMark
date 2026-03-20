@@ -104,6 +104,8 @@ class AgentRuntime:
                 payload={"task_type": task.task_type},
             )
 
+        task.context["trace_span_id"] = span_id
+
         self.emit_event(
             event_type="task_received",
             session_id=session_id,
@@ -302,6 +304,18 @@ class AgentRuntime:
                 result = self.execute_task(current_task, run_reflection=run_post_processing)
                 results.append(result)
 
+                current_span_id = current_task.context.get("trace_span_id")
+                source_span_id = current_task.context.get("source_span_id")
+
+                if run_id and source_span_id and current_span_id:
+                    self.tracer.add_edge(
+                        run_id=run_id,
+                        from_node=source_span_id,
+                        to_node=current_span_id,
+                        edge_type="handoff",
+                        reason=current_task.context.get("handoff", {}).get("reason"),
+                    )
+
                 if result.next_action == "engagement_request":
                     handoff = self.build_handoff(
                         from_agent=result.agent_name,
@@ -318,14 +332,6 @@ class AgentRuntime:
                         reason="Lead triage determined that engagement follow-up is required.",
                     )
 
-                    self.tracer.add_edge(
-                        run_id=run_id,
-                        from_node=result.agent_name,
-                        to_node="engagement_agent",
-                        edge_type="handoff",
-                        reason=handoff.reason,
-                    )
-
                     self.emit_event(
                         event_type="handoff_created",
                         session_id=current_task.session_id,
@@ -352,6 +358,7 @@ class AgentRuntime:
                             "handoff": handoff.model_dump(),
                             "previous_result": result.output,
                             "trace_run_id": run_id,
+                            "source_span_id": current_span_id,
                         },
                         assigned_by=result.agent_name,
                         session_id=handoff.session_id,
@@ -368,14 +375,6 @@ class AgentRuntime:
                         reason="Campaign optimizer escalated the issue for strategic review.",
                     )
 
-                    self.tracer.add_edge(
-                        run_id=run_id,
-                        from_node=result.agent_name,
-                        to_node="strategy_agent",
-                        edge_type="handoff",
-                        reason=handoff.reason,
-                    )
-
                     self.emit_event(
                         event_type="handoff_created",
                         session_id=current_task.session_id,
@@ -402,6 +401,7 @@ class AgentRuntime:
                             "handoff": handoff.model_dump(),
                             "previous_result": result.output,
                             "trace_run_id": run_id,
+                            "source_span_id": current_span_id,
                         },
                         assigned_by=result.agent_name,
                         session_id=handoff.session_id,

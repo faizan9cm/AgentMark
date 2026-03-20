@@ -3,12 +3,24 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from orchestrator.agent_runtime import AgentRuntime
 from orchestrator.contracts import AgentTask
 from api.websocket_manager import WebSocketManager
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from interaction.controller import InteractionController
 from interaction.models import UserMessage
 
 app = FastAPI(title="AgentMark Transport Layer")
 app.state.main_loop = None
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup_event():

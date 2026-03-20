@@ -1,5 +1,15 @@
+# Python
 .env
 venv/
 __pycache__/
 *.pyc
 memory/data/
+
+# Frontend
+frontend/node_modules
+frontend/dist
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
